@@ -1,0 +1,1 @@
+This project is still very incomplete and full of bugs. I might improve it in the future, but not right now.

@@ -3,6 +3,7 @@ import os
 import mido
 import tkinter
 import argparse
+import sys
 
 
 def preprocess_frame(frame):
@@ -177,6 +178,9 @@ def process(videofile, frameskip):
         videofile: Path to video file
         frameskip: Number of frames to skip after processing one frame
     """
+    if not os.path.exists(videofile):
+        print(f"Error: File '{videofile}' does not exist.")
+        sys.exit(1)
     video = cv2.VideoCapture(videofile)
     video_fps = video.get(cv2.CAP_PROP_FPS)
     print(f"Video FPS: {video_fps}")

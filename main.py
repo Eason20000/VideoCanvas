@@ -2,6 +2,7 @@ import cv2
 import os
 import mido
 import tkinter
+import argparse
 
 
 def preprocess_frame(frame):
@@ -174,8 +175,15 @@ def process(videofile, framerate):
     print(f"MIDI file saved as: {output_file}")
 
 
-# Main program entry point
 if __name__ == "__main__":
-    input_video = "【東方】Bad Apple!! ＰＶ【影絵】 [BV1xx411c79H].mp4"
-    target_framerate = 30
-    process(input_video, target_framerate)
+    # Setup command line argument parsing
+    parser = argparse.ArgumentParser(description="Convert videos to MIDI files which can be read by Roland Sound Canvas.")
+    parser.add_argument("input_video", type=str, help="Path to the input video file")
+    parser.add_argument(
+        "--framerate", type=int, default=30, help="Target frame rate (default: 30)"
+    )
+
+    args = parser.parse_args()
+
+    # Call the processing function with command line arguments
+    process(args.input_video, args.framerate)

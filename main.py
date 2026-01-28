@@ -52,13 +52,7 @@ def calculate_sysex_data(binary_image):
     for row in range(16):
         sysex_list.append(16 * binary_data[row][15])
 
-    # Calculate checksum
-    sysex_sum = sum(sysex_list)
-    checksum = 128 - (17 + sysex_sum) % 128
-    if checksum == 128:
-        checksum = 0
-
-    return sysex_list, [checksum]
+    return sysex_list
 
 
 def video_to_image_list(video, frameskip):
@@ -91,50 +85,43 @@ def video_to_image_list(video, frameskip):
     return frame_image_list
 
 
-def create_sysex_messages(sysex_data, checksum, video_fps, frameskip):
+def create_sysex_messages(sysex_data, video_fps, frameskip, framecount):
     """Create all SysEx messages for a single frame"""
     messages = []
+    sysex_header = [0x41, 0x10, 0x45, 0x12]
+    sysex_address = [0x10, 0x01, 0x00]
+
+    # Calculate checksum
+    checksum = 128 - (sum(sysex_address) + sum(sysex_data)) % 128
+    if checksum == 128:
+        checksum = 0
 
     # Main image data message
-    image_sysex = [0x41, 0x10, 0x45, 0x12, 0x10, 0x01, 0x00] + sysex_data + checksum
+    image_sysex = sysex_header + sysex_address + sysex_data + [checksum]
 
     # Calculate time based on video FPS and frameskip
-    # Each frame should be displayed for (frameskip + 1) / video_fps seconds
     # Convert to MIDI ticks (assuming 480 ticks per quarter note and tempo 500000)
     # 500000 microseconds per quarter note = 0.5 seconds per quarter note
     # So 480 ticks per 0.5 seconds = 960 ticks per second
-    # Time per frame in seconds: (frameskip + 1) / video_fps
-    # Time in ticks: 960 * (frameskip + 1) / video_fps
-    time_per_frame_ticks = int(960 * (frameskip + 1) / video_fps)
+    frame_time = framecount * (frameskip + 1) / video_fps
+    frame_next_time = (framecount + 1) * (frameskip + 1) / video_fps
+    frame_tick = int(frame_time * 960)
+    frame_next_tick = int(frame_next_time * 960)
 
-    # Split time between messages (main message gets half, control messages get quarter each)
+    frame_length_tick = frame_next_tick - frame_tick
+
     messages.append(
         mido.Message(
             "sysex",
             data=image_sysex,
-            time=time_per_frame_ticks // 2,
+            time=frame_length_tick,
         )
     )
-
-    # Additional control messages
-    control_messages = [
-        [0x41, 0x10, 0x45, 0x12, 0x10, 0x20, 0x00, 0x01, 0x4F],
-        [0x41, 0x10, 0x45, 0x12, 0x10, 0x20, 0x01, 0x01, 0x4E],
-    ]
-
-    for data in control_messages:
-        messages.append(
-            mido.Message(
-                "sysex",
-                data=data,
-                time=time_per_frame_ticks // 4,
-            )
-        )
 
     return messages
 
 
-def pnglist_to_midifile(frame_image_list, video_fps, frameskip):
+def image_list_to_midifile(frame_image_list, video_fps, frameskip):
     """
     Convert binarized image list to MIDI file
 
@@ -153,13 +140,15 @@ def pnglist_to_midifile(frame_image_list, video_fps, frameskip):
     # Set tempo for MIDI file (500000 microseconds per quarter note = 120 BPM)
     meta_track.append(mido.MetaMessage("set_tempo", tempo=500000))
 
-    for image in frame_image_list:
+    for framecount in range(len(frame_image_list)):
+        image = frame_image_list[framecount]
+
         # Calculate SysEx data
-        sysex_data, checksum = calculate_sysex_data(image)
+        sysex_data = calculate_sysex_data(image)
 
         # Create and add all SysEx messages for this frame
         sysex_messages = create_sysex_messages(
-            sysex_data, checksum, video_fps, frameskip
+            sysex_data, video_fps, frameskip, framecount
         )
         for message in sysex_messages:
             data_track.append(message)
@@ -188,7 +177,7 @@ def process(videofile, frameskip):
     print(f"Effective frame rate: {video_fps / (frameskip + 1):.2f} FPS")
 
     frame_image_list = video_to_image_list(video, frameskip)
-    midifile = pnglist_to_midifile(frame_image_list, video_fps, frameskip)
+    midifile = image_list_to_midifile(frame_image_list, video_fps, frameskip)
 
     # Create output filename
     base_name = os.path.splitext(videofile)[0]

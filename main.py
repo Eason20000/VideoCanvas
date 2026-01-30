@@ -165,7 +165,7 @@ def create_sysex_messages(sysex_data, video_fps, frameskip, framecount, sysex_ad
 
 
 def create_sysex_messages_8850(
-    sysex_data, video_fps, frameskip, framecount, sysex_address
+    sysex_data, video_fps, frameskip, framecount, sysex_address, section
 ):
     """Create all SysEx messages for a single frame"""
     messages = []
@@ -184,17 +184,18 @@ def create_sysex_messages_8850(
     # 500000 microseconds per quarter note = 0.5 seconds per quarter note
     # So 480 ticks per 0.5 seconds = 960 ticks per second
     frame_time = framecount * (frameskip + 1) / video_fps
-    frame_next_time = (framecount + 1) * (frameskip + 1) / video_fps
-    frame_tick = int(frame_time * 960)
-    frame_next_tick = int(frame_next_time * 960)
+    section_time = section / 16 / (video_fps / (frameskip + 1)) + frame_time
+    section_next_time = (section + 1) / 16 / (video_fps / (frameskip + 1)) + frame_time
+    section_tick = int(section_time * 960)
+    section_next_tick = int(section_next_time * 960)
 
-    frame_length_tick = frame_next_tick - frame_tick
+    section_length_tick = section_next_tick - section_tick
 
     messages.append(
         mido.Message(
             "sysex",
             data=image_sysex,
-            time=frame_length_tick // 17,
+            time=section_length_tick,
         )
     )
     return messages
@@ -235,6 +236,7 @@ def image_list_to_midifile(frame_image_list, video_fps, frameskip, sc8850):
                     frameskip,
                     framecount,
                     sysex_address,
+                    section,
                 )
             for message in sysex_messages:
                 data_track.append(message)

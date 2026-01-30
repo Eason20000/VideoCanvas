@@ -128,13 +128,11 @@ def create_sysex_messages_8850(
     sysex_header = [0x41, 0x10, 0x45, 0x12]
 
     if interlace:
-        section_count = 17 / 2
         if midi_frame_count % 2 == 0:
             section_order = [0, 2, 4, 6, 8, 10, 12, 14, 15]
         else:
             section_order = [1, 3, 5, 7, 9, 11, 13, 15]
     else:
-        section_count = 16
         section_order = range(16)
 
     for section in section_order:
@@ -149,9 +147,9 @@ def create_sysex_messages_8850(
 
         frame_time = midi_frame_count * (frameskip + 1) / video_fps
         section_time = (
-            section / section_count / (video_fps / (frameskip + 1)) + frame_time
+            section_order.index(section) / len(section_order) / (video_fps / (frameskip + 1)) + frame_time
         )
-        section_next_time = (section + 1) / section_count / (
+        section_next_time = (section_order.index(section) + 1) / len(section_order) / (
             video_fps / (frameskip + 1)
         ) + frame_time
         section_tick = int(section_time * 960)
